@@ -1,47 +1,714 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Visor de PDFs DOJ Data Set 1</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DOJ Epstein — Data Set 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #c8a96e;
+    --accent2: #8b6914;
+    --text: #e8e4dc;
+    --text-muted: #666;
+    --text-dim: #999;
+    --red: #c0392b;
+    --green: #27ae60;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --serif: 'Playfair Display', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === HEADER === */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 0 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+  }
+
+  .brand-seal {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border: 1px solid var(--accent2);
+    padding: 0.2em 0.5em;
+  }
+
+  .brand-title {
+    font-family: var(--serif);
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .brand-title span { color: var(--accent); }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .status-badge {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent2);
+    flex-shrink: 0;
+  }
+  .status-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  .status-dot.done { background: var(--accent); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .count-label { font-family: var(--mono); font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+  .count-label strong { color: var(--accent); }
+
+  /* === SEARCH BAR === */
+  .search-bar {
+    padding: 0.7rem 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .search-wrap { flex: 1; position: relative; max-width: 550px; }
+
+  .search-icon {
+    position: absolute; left: 0.9rem; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    padding: 0.55rem 1rem 0.55rem 2.2rem;
+    outline: none;
+    transition: border-color .2s;
+    letter-spacing: 0.03em;
+  }
+  .search-input::placeholder { color: var(--text-muted); }
+  .search-input:focus { border-color: var(--accent); }
+
+  .view-toggle { display: flex; gap: .3rem; }
+
+  .view-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: .4rem .65rem;
+    cursor: pointer;
+    transition: all .2s;
+    font-size: 1rem;
+  }
+  .view-btn.active, .view-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(200,169,110,.05); }
+
+  .results-count { font-family: var(--mono); font-size: .7rem; color: var(--text-muted); white-space: nowrap; }
+  .results-count strong { color: var(--accent); }
+
+  /* === PROGRESS BAR === */
+  .scrape-progress {
+    padding: .35rem 2rem;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    font-family: var(--mono);
+    font-size: .65rem;
+    color: var(--text-muted);
+  }
+  .progress-bar-wrap { flex: 1; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--accent); transition: width .5s ease; }
+
+  /* === LAYOUT === */
+  .layout { display: flex; height: calc(100vh - 118px); }
+
+  /* === SIDEBAR === */
+  .sidebar {
+    width: 330px; min-width: 330px;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transition: width .3s;
+  }
+
+  .sidebar-list {
+    flex: 1; overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .pdf-item {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: .6rem .9rem;
+    border-bottom: 1px solid rgba(42,42,42,.5);
+    cursor: pointer;
+    transition: background .15s;
+    position: relative;
+  }
+  .pdf-item::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 2px; background: transparent; transition: background .15s;
+  }
+  .pdf-item:hover { background: var(--surface); }
+  .pdf-item:hover::before { background: var(--accent2); }
+  .pdf-item.active { background: var(--surface2); }
+  .pdf-item.active::before { background: var(--accent); }
+
+  .pdf-num {
+    font-family: var(--mono); font-size: .58rem;
+    color: var(--text-muted); min-width: 32px;
+    text-align: right; letter-spacing: .03em;
+  }
+  .pdf-icon { font-size: .95rem; opacity: .55; flex-shrink: 0; }
+
+  .pdf-name {
+    font-family: var(--mono); font-size: .7rem;
+    color: var(--text-dim); letter-spacing: .02em;
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: color .15s;
+  }
+  .pdf-item:hover .pdf-name, .pdf-item.active .pdf-name { color: var(--text); }
+
+  .pdf-ext-btn {
+    background: none; border: 1px solid transparent;
+    color: var(--text-muted); padding: .15rem .35rem;
+    cursor: pointer; font-size: .65rem; font-family: var(--mono);
+    transition: all .15s; opacity: 0; flex-shrink: 0;
+  }
+  .pdf-item:hover .pdf-ext-btn { opacity: 1; border-color: var(--border); }
+  .pdf-ext-btn:hover { border-color: var(--accent) !important; color: var(--accent); }
+
+  /* === PAGINATION === */
+  .pagination {
+    padding: .65rem 1rem;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center;
+    justify-content: space-between; gap: .5rem;
+  }
+  .page-btn {
+    background: none; border: 1px solid var(--border);
+    color: var(--text-muted); padding: .3rem .55rem;
+    cursor: pointer; font-family: var(--mono); font-size: .62rem;
+    transition: all .15s; white-space: nowrap;
+  }
+  .page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .page-btn:disabled { opacity: .3; cursor: not-allowed; }
+  .page-info { font-family: var(--mono); font-size: .62rem; color: var(--text-muted); text-align:center; }
+  .page-jump { display: flex; gap: .3rem; align-items: center; margin-top: 3px; }
+  .page-input {
+    width: 48px; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: .62rem;
+    padding: .2rem .35rem; outline: none; text-align: center;
+  }
+  .page-input:focus { border-color: var(--accent); }
+
+  /* === VIEWER === */
+  .viewer {
+    flex: 1; display: flex; flex-direction: column;
+    background: var(--surface); overflow: hidden;
+  }
+
+  .viewer-toolbar {
+    padding: .65rem 1.2rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: .8rem;
+    background: var(--bg); flex-shrink: 0;
+  }
+  .viewer-title {
+    font-family: var(--mono); font-size: .72rem;
+    color: var(--text-dim); flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .viewer-title strong { color: var(--text); }
+
+  .nav-arrows { display: flex; gap: .3rem; }
+  .arrow-btn {
+    background: none; border: 1px solid var(--border);
+    color: var(--text-muted); width: 27px; height: 27px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: .85rem; transition: all .15s;
+  }
+  .arrow-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .arrow-btn:disabled { opacity: .3; cursor: not-allowed; }
+
+  .btn-action {
+    background: none; border: 1px solid var(--border);
+    color: var(--text-muted); padding: .35rem .75rem;
+    cursor: pointer; font-family: var(--mono); font-size: .68rem;
+    transition: all .15s; display: flex; align-items: center;
+    gap: .4rem; white-space: nowrap; flex-shrink: 0;
+  }
+  .btn-action:hover { border-color: var(--accent); color: var(--accent); background: rgba(200,169,110,.04); }
+  .btn-action.primary { border-color: var(--accent2); color: var(--accent); }
+
+  /* === VIEWER FRAME === */
+  .viewer-frame { flex: 1; position: relative; overflow: hidden; }
+  .viewer-frame iframe { width: 100%; height: 100%; border: none; }
+
+  /* === EMPTY / ERROR STATES === */
+  .empty-state {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1rem; color: var(--text-muted); padding: 2rem;
+  }
+  .empty-icon { font-size: 2.8rem; opacity: .3; }
+  .empty-label { font-family: var(--serif); font-size: 1.15rem; color: var(--text-dim); }
+  .empty-sub {
+    font-family: var(--mono); font-size: .68rem; color: var(--text-muted);
+    max-width: 340px; text-align: center; line-height: 1.7;
+  }
+
+  /* Verification warning */
+  .verify-banner {
+    background: #1a1200; border: 1px solid #4a3800;
+    border-radius: 0; padding: 1rem 1.5rem;
+    font-family: var(--mono); font-size: .72rem;
+    color: #c8a030; max-width: 500px; text-align: center;
+    line-height: 1.7;
+  }
+  .verify-banner a {
+    color: var(--accent); text-decoration: underline; cursor: pointer;
+  }
+  .verify-banner kbd {
+    background: #2a2000; border: 1px solid #4a3800;
+    padding: 0.1em 0.4em; border-radius: 2px; font-family: var(--mono);
+  }
+
+  .btn-verify {
+    background: var(--accent2); border: none;
+    color: #000; padding: .5rem 1.2rem;
+    cursor: pointer; font-family: var(--mono); font-size: .72rem;
+    font-weight: 500; letter-spacing: .05em; margin-top: .5rem;
+    transition: background .2s;
+  }
+  .btn-verify:hover { background: var(--accent); }
+
+  /* === GRID VIEW === */
+  .grid-view {
+    padding: 1.2rem; display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: .9rem; overflow-y: auto; height: 100%;
+  }
+  .grid-card {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: .9rem .7rem; cursor: pointer; transition: all .2s;
+    display: flex; flex-direction: column; align-items: center;
+    gap: .5rem; text-align: center;
+  }
+  .grid-card:hover { border-color: var(--accent2); background: var(--surface2); transform: translateY(-2px); }
+  .grid-card.active { border-color: var(--accent); background: var(--surface2); }
+  .grid-card .g-icon { font-size: 1.8rem; opacity: .45; }
+  .grid-card .g-name {
+    font-family: var(--mono); font-size: .58rem;
+    color: var(--text-muted); word-break: break-all; line-height: 1.5;
+  }
+
+  /* Scrollbar */
+  * { scrollbar-width: thin; scrollbar-color: #2a2a2a transparent; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
 </head>
 <body>
-    <h1>Visor de PDFs - Data Set 1</h1>
 
-    <button onclick="prevPdf()">← Anterior</button>
-    <button onclick="nextPdf()">Siguiente →</button>
-
-    <div id="viewer" style="margin-top:20px;">
-        <iframe id="pdfFrame" width="100%" height="800px"></iframe>
+<div class="header">
+  <div class="header-top">
+    <div class="header-brand">
+      <span class="brand-seal">DOJ · EFTA</span>
+      <h1 class="brand-title">Epstein <span>Data Set 1</span></h1>
     </div>
+    <div class="header-meta">
+      <div class="status-badge">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Iniciando...</span>
+      </div>
+      <div class="count-label">
+        <strong id="scrapedCount">0</strong>&nbsp;/&nbsp;<span id="totalCount">~3150</span> docs
+      </div>
+    </div>
+  </div>
+  <div class="search-bar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" class="search-input" id="searchInput"
+        placeholder="Buscar archivo... (ej: EFTA00000042)" />
+    </div>
+    <div class="results-count" id="resultsCount"></div>
+    <div class="view-toggle">
+      <button class="view-btn active" id="listViewBtn" title="Lista" onclick="setView('list')">☰</button>
+      <button class="view-btn" id="gridViewBtn" title="Cuadrícula" onclick="setView('grid')">⊞</button>
+    </div>
+  </div>
+</div>
+
+<div id="scrapeProgressBar" style="display:none" class="scrape-progress">
+  <span>📡 Indexando...</span>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+  </div>
+  <span id="progressPct">0%</span>
+  <span id="progressCount" style="color:var(--text-muted)"></span>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-list" id="pdfList"></div>
+    <div class="pagination" id="paginationBar">
+      <button class="page-btn" id="prevBtn" onclick="changePage(-1)">← Prev</button>
+      <div>
+        <div class="page-info" id="pageInfo">1 / 1</div>
+        <div class="page-jump">
+          <input type="number" class="page-input" id="pageInput" min="1" value="1"/>
+          <button class="page-btn" onclick="jumpToPage()">Ir</button>
+        </div>
+      </div>
+      <button class="page-btn" id="nextBtn" onclick="changePage(1)">Sig →</button>
+    </div>
+  </div>
+
+  <!-- Viewer -->
+  <div class="viewer" id="viewerPanel">
+    <div class="viewer-toolbar" id="viewerToolbar" style="display:none">
+      <div class="viewer-title" id="viewerTitle"></div>
+      <div class="nav-arrows">
+        <button class="arrow-btn" id="prevDoc" onclick="navigateDoc(-1)" title="Anterior">‹</button>
+        <button class="arrow-btn" id="nextDoc" onclick="navigateDoc(1)" title="Siguiente">›</button>
+      </div>
+      <button class="btn-action" onclick="openExternal()">↗ Nueva pestaña</button>
+      <button class="btn-action primary" onclick="downloadPdf()">⬇ Descargar</button>
+    </div>
+    <div class="viewer-frame" id="viewerFrame">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">📂</div>
+        <div class="empty-label">Selecciona un documento</div>
+        <div class="empty-sub">
+          Haz clic en cualquier archivo de la lista para visualizarlo.<br>
+          Los PDFs se cargan desde los servidores del DOJ.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
-let pdfs = [];
-let current = 0;
+  let currentPage = 0;
+  let totalPages = 1;
+  let currentPdfs = [];
+  let selectedIdx = -1;
+  let currentView = 'list';
+  let searchQuery = '';
+  let statusInterval;
+  let scrapingDone = false;
+  let currentPdfUrl = '';
+  let currentPdfName = '';
+  let verificationShown = false;
 
-// Cargar lista de PDFs desde el backend
-fetch("/api/pdfs")
-    .then(r => r.json())
-    .then(data => {
-        pdfs = data;
-        if (pdfs.length > 0) {
-            document.getElementById("pdfFrame").src = pdfs[0];
+  const PER_PAGE = 50;
+
+  async function init() {
+    await fetch('/api/start-scrape');
+    await loadPdfs(0);
+    statusInterval = setInterval(updateStatus, 2500);
+  }
+
+  async function updateStatus() {
+    try {
+      const r = await fetch('/api/status');
+      const data = await r.json();
+      const dot = document.getElementById('statusDot');
+      const txt = document.getElementById('statusText');
+
+      document.getElementById('scrapedCount').textContent = data.count;
+
+      if (data.done) {
+        dot.className = 'status-dot done';
+        txt.textContent = 'Índice completo ✓';
+        document.getElementById('scrapeProgressBar').style.display = 'none';
+        scrapingDone = true;
+        clearInterval(statusInterval);
+        await loadPdfs(currentPage);
+      } else if (data.scraping) {
+        dot.className = 'status-dot live';
+        txt.textContent = 'Indexando...';
+        const bar = document.getElementById('scrapeProgressBar');
+        bar.style.display = 'flex';
+        const pct = Math.round((data.count / data.expected) * 100);
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressPct').textContent = pct + '%';
+        document.getElementById('progressCount').textContent = `${data.count} PDFs encontrados`;
+        await loadPdfs(currentPage);
+      }
+    } catch(e) {}
+  }
+
+  async function loadPdfs(page) {
+    currentPage = page;
+    const params = new URLSearchParams({ page, per_page: PER_PAGE, search: searchQuery });
+    const r = await fetch('/api/pdfs?' + params);
+    const data = await r.json();
+
+    currentPdfs = data.pdfs;
+    totalPages = data.total_pages;
+
+    document.getElementById('resultsCount').innerHTML =
+      `<strong>${data.total}</strong> resultados`;
+
+    renderList();
+    updatePagination();
+  }
+
+  function renderList() {
+    const list = document.getElementById('pdfList');
+    if (currentPdfs.length === 0) {
+      list.innerHTML = `<div style="padding:2rem;text-align:center;font-family:var(--mono);font-size:.7rem;color:var(--text-muted)">
+        ${scrapingDone ? 'Sin resultados' : 'Cargando documentos...'}
+      </div>`;
+      return;
+    }
+
+    const startNum = currentPage * PER_PAGE + 1;
+
+    if (currentView === 'list') {
+      list.innerHTML = currentPdfs.map((pdf, i) => `
+        <div class="pdf-item ${i === selectedIdx ? 'active' : ''}" onclick="selectPdf(${i})">
+          <span class="pdf-num">${startNum + i}</span>
+          <span class="pdf-icon">📄</span>
+          <span class="pdf-name" title="${pdf.name}">${pdf.name}</span>
+          <button class="pdf-ext-btn" onclick="event.stopPropagation();window.open('${pdf.url}','_blank')" title="Abrir en nueva pestaña">↗</button>
+        </div>
+      `).join('');
+    } else {
+      const frame = document.getElementById('viewerFrame');
+      frame.innerHTML = `<div class="grid-view">${
+        currentPdfs.map((pdf, i) => `
+          <div class="grid-card ${i === selectedIdx ? 'active' : ''}" onclick="selectPdf(${i})">
+            <span class="g-icon">📄</span>
+            <div class="g-name">${pdf.name}</div>
+          </div>
+        `).join('')
+      }</div>`;
+      list.innerHTML = '';
+    }
+  }
+
+  function showVerificationHelp(pdfUrl) {
+    const frame = document.getElementById('viewerFrame');
+    frame.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔒</div>
+        <div class="empty-label">Verificación requerida</div>
+        <div class="verify-banner">
+          El DOJ requiere aceptar un aviso de privacidad antes de ver los documentos.<br><br>
+          <strong>Pasos:</strong><br>
+          1. Haz clic en "Abrir y aceptar verificación" ↓<br>
+          2. En la nueva pestaña, acepta el aviso del DOJ<br>
+          3. Cierra esa pestaña y haz clic en "Reintentar"<br><br>
+          <button class="btn-verify" onclick="window.open('${pdfUrl}','_blank')">
+            ↗ Abrir y aceptar verificación
+          </button>
+          &nbsp;
+          <button class="btn-verify" style="background:var(--surface2);color:var(--accent);border:1px solid var(--accent2)"
+            onclick="retryCurrentPdf()">
+            ↺ Reintentar
+          </button>
+        </div>
+        <div class="empty-sub">
+          También puedes usar el botón "↗ Nueva pestaña" en la barra superior 
+          para ver el PDF directamente en tu navegador.
+        </div>
+      </div>
+    `;
+  }
+
+  function retryCurrentPdf() {
+    if (currentPdfUrl) loadPdfInViewer(currentPdfUrl, currentPdfName);
+  }
+
+  function loadPdfInViewer(pdfUrl, pdfName) {
+    const frame = document.getElementById('viewerFrame');
+
+    // Mostrar loading
+    frame.innerHTML = `
+      <div class="empty-state">
+        <div style="font-family:var(--mono);font-size:.75rem;color:var(--text-muted)">
+          Cargando ${pdfName}...
+        </div>
+        <div style="width:200px;height:2px;background:var(--border);margin-top:.5rem;overflow:hidden;border-radius:2px">
+          <div style="height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent),var(--accent2));
+            background-size:200% 100%;animation:shimmer 1.5s infinite"></div>
+        </div>
+      </div>
+      <style>@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}</style>
+    `;
+
+    // Intentar primero con el proxy (que maneja las cookies de sesión)
+    const proxyUrl = `/api/proxy?url=${encodeURIComponent(pdfUrl)}`;
+    const iframe = document.createElement('iframe');
+    iframe.title = pdfName;
+    iframe.style.cssText = 'width:100%;height:100%;border:none;';
+    iframe.src = proxyUrl;
+
+    iframe.onload = () => {
+      // Verificar si cargó correctamente o redirigió a verificación
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        if (doc && doc.title && doc.title.toLowerCase().includes('verify')) {
+          showVerificationHelp(pdfUrl);
         }
-    });
+      } catch(e) {
+        // cross-origin, probablemente cargó bien
+      }
+    };
 
-function prevPdf() {
-    if (current > 0) {
-        current--;
-        document.getElementById("pdfFrame").src = pdfs[current];
-    }
-}
+    iframe.onerror = () => {
+      showVerificationHelp(pdfUrl);
+    };
 
-function nextPdf() {
-    if (current < pdfs.length - 1) {
-        current++;
-        document.getElementById("pdfFrame").src = pdfs[current];
+    frame.innerHTML = '';
+    frame.appendChild(iframe);
+  }
+
+  function selectPdf(idx) {
+    selectedIdx = idx;
+    const pdf = currentPdfs[idx];
+    currentPdfUrl = pdf.url;
+    currentPdfName = pdf.name;
+
+    // Actualizar estado activo en la lista
+    document.querySelectorAll('.pdf-item').forEach((el, i) =>
+      el.classList.toggle('active', i === idx));
+    document.querySelectorAll('.grid-card').forEach((el, i) =>
+      el.classList.toggle('active', i === idx));
+
+    // Toolbar
+    document.getElementById('viewerToolbar').style.display = 'flex';
+    document.getElementById('viewerTitle').innerHTML =
+      `<strong>${pdf.name}</strong>`;
+
+    // Cargar PDF
+    loadPdfInViewer(pdf.url, pdf.name);
+
+    // Nav buttons
+    document.getElementById('prevDoc').disabled = (idx === 0 && currentPage === 0);
+    document.getElementById('nextDoc').disabled = (idx === currentPdfs.length - 1 && currentPage >= totalPages - 1);
+  }
+
+  function navigateDoc(dir) {
+    const newIdx = selectedIdx + dir;
+    if (newIdx >= 0 && newIdx < currentPdfs.length) {
+      selectPdf(newIdx);
+    } else if (dir > 0 && currentPage < totalPages - 1) {
+      loadPdfs(currentPage + 1).then(() => selectPdf(0));
+    } else if (dir < 0 && currentPage > 0) {
+      loadPdfs(currentPage - 1).then(() => selectPdf(currentPdfs.length - 1));
     }
-}
+  }
+
+  function openExternal() {
+    if (currentPdfUrl) window.open(currentPdfUrl, '_blank');
+  }
+
+  function downloadPdf() {
+    if (!currentPdfUrl) return;
+    const a = document.createElement('a');
+    a.href = `/api/proxy?url=${encodeURIComponent(currentPdfUrl)}`;
+    a.download = currentPdfName || 'document.pdf';
+    a.click();
+  }
+
+  function updatePagination() {
+    document.getElementById('pageInfo').textContent = `${currentPage + 1} / ${totalPages}`;
+    document.getElementById('pageInput').value = currentPage + 1;
+    document.getElementById('pageInput').max = totalPages;
+    document.getElementById('prevBtn').disabled = currentPage === 0;
+    document.getElementById('nextBtn').disabled = currentPage >= totalPages - 1;
+  }
+
+  function changePage(dir) {
+    const p = currentPage + dir;
+    if (p >= 0 && p < totalPages) { selectedIdx = -1; loadPdfs(p); }
+  }
+
+  function jumpToPage() {
+    const val = parseInt(document.getElementById('pageInput').value) - 1;
+    if (val >= 0 && val < totalPages) { selectedIdx = -1; loadPdfs(val); }
+  }
+
+  function setView(view) {
+    currentView = view;
+    document.getElementById('listViewBtn').classList.toggle('active', view === 'list');
+    document.getElementById('gridViewBtn').classList.toggle('active', view === 'grid');
+    document.getElementById('sidebar').style.display = view === 'grid' ? 'none' : 'flex';
+    renderList();
+  }
+
+  // Búsqueda con debounce
+  let searchTimer;
+  document.getElementById('searchInput').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchQuery = e.target.value.trim();
+    searchTimer = setTimeout(() => loadPdfs(0), 300);
+  });
+
+  document.getElementById('pageInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') jumpToPage();
+  });
+
+  init();
 </script>
-
 </body>
 </html>
