@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Visor de PDFs DOJ Data Set 1</title>
+</head>
+<body>
+    <h1>Visor de PDFs - Data Set 1</h1>
+
+    <button onclick="prevPdf()">← Anterior</button>
+    <button onclick="nextPdf()">Siguiente →</button>
+
+    <div id="viewer" style="margin-top:20px;">
+        <iframe id="pdfFrame" width="100%" height="800px"></iframe>
+    </div>
+
+<script>
+let pdfs = [];
+let current = 0;
+
+// Cargar lista de PDFs desde el backend
+fetch("/api/pdfs")
+    .then(r => r.json())
+    .then(data => {
+        pdfs = data;
+        if (pdfs.length > 0) {
+            document.getElementById("pdfFrame").src = pdfs[0];
+        }
+    });
+
+function prevPdf() {
+    if (current > 0) {
+        current--;
+        document.getElementById("pdfFrame").src = pdfs[current];
+    }
+}
+
+function nextPdf() {
+    if (current < pdfs.length - 1) {
+        current++;
+        document.getElementById("pdfFrame").src = pdfs[current];
+    }
+}
+</script>
+
+</body>
+</html>
